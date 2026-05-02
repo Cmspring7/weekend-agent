@@ -1,0 +1,23 @@
+{
+  "name": "weekend-agent",
+  "version": "0.1.0",
+  "description": "A weekend adventure agent that recommends things to do in SLC",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/agent.ts",
+    "chat": "tsx src/agent.ts",
+    "rate": "tsx src/rate.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "better-sqlite3": "^11.7.0",
+    "braintrust": "^0.0.174",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
