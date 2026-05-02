@@ -1,132 +1,40 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { createInterface } from "readline";
 import { config } from "dotenv";
-import { getSystemPrompt } from "./prompts/system.js";
-import { toolDefinitions, executeTool } from "./tools/index.js";
-import { createRunId, saveRun, type AgentRun, type ToolCall } from "./evals/logger.js";
+import type Anthropic from "@anthropic-ai/sdk";
+import { runAgentCore } from "./core.js";
+import { saveRun, type AgentRun } from "./evals/logger.js";
 
 config();
 
-const client = new Anthropic();
-const MODEL = "claude-sonnet-4-20250514";
-
-// ============================================================
-// The Agent Loop
-// ============================================================
-
 // Persists across turns for the duration of the CLI session
-const messages: Anthropic.MessageParam[] = [];
+const conversationHistory: Anthropic.MessageParam[] = [];
 
 async function runAgent(userInput: string): Promise<{ response: string; run: AgentRun | null }> {
-  const runId = createRunId();
-  const toolCalls: ToolCall[] = [];
-
-  messages.push({ role: "user", content: userInput });
-
   console.log("\n🤔 Thinking...\n");
 
-  let iterations = 0;
-  const MAX_ITERATIONS = 15; // Safety valve
-
-  while (iterations < MAX_ITERATIONS) {
-    iterations++;
-
-    // Call Claude
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 4096,
-      system: getSystemPrompt(new Date()),
-      tools: toolDefinitions,
-      messages,
-    });
-
-    // Process response content blocks
-    const assistantContent = response.content;
-
-    // Check for tool use
-    const toolUseBlocks = assistantContent.filter(
-      (block): block is Anthropic.ContentBlockParam & { type: "tool_use"; id: string; name: string; input: Record<string, unknown> } =>
-        block.type === "tool_use"
-    );
-
-    // Check for text
-    const textBlocks = assistantContent.filter(
-      (block): block is Anthropic.TextBlock => block.type === "text"
-    );
-
-    // If there are tool calls, execute them
-    if (toolUseBlocks.length > 0) {
-      // Add assistant message with all content blocks
-      messages.push({ role: "assistant", content: assistantContent });
-
-      // Execute each tool and collect results
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
-
-      for (const toolBlock of toolUseBlocks) {
-        const toolName = toolBlock.name;
-        const toolInput = toolBlock.input;
-
-        // Log to console
-        if (toolName === "scratchpad") {
-          console.log(`  📝 Scratchpad: ${(toolInput as any).thought}\n`);
-        } else {
-          console.log(`  🔧 ${toolName}(${JSON.stringify(toolInput)})`);
-        }
-
-        // Execute
-        const result = await executeTool(toolName, toolInput);
-
-        if (toolName !== "scratchpad") {
-          // Truncate long results for console
-          const preview = result.length > 200 ? result.slice(0, 200) + "..." : result;
-          console.log(`     → ${preview}\n`);
-        }
-
-        // Log for evals
-        toolCalls.push({
-          tool: toolName,
-          input: toolInput,
-          output: result,
-          timestamp: new Date().toISOString(),
-        });
-
-        toolResults.push({
-          type: "tool_result",
-          tool_use_id: toolBlock.id,
-          content: result,
-        });
+  const result = await runAgentCore(
+    userInput,
+    conversationHistory,
+    (toolName, toolInput) => {
+      if (toolName === "scratchpad") {
+        console.log(`  📝 Scratchpad: ${(toolInput as any).thought}\n`);
+      } else {
+        console.log(`  🔧 ${toolName}(${JSON.stringify(toolInput)})`);
       }
-
-      // Add tool results as user message
-      messages.push({ role: "user", content: toolResults });
-
-      // Continue the loop - Claude will process tool results
-      continue;
+    },
+    (toolName, result) => {
+      if (toolName !== "scratchpad") {
+        const preview = result.length > 200 ? result.slice(0, 200) + "..." : result;
+        console.log(`     → ${preview}\n`);
+      }
     }
+  );
 
-    // No tool calls - we have the final response
-    if (textBlocks.length > 0) {
-      const finalResponse = textBlocks.map((b) => b.text).join("\n");
+  // Sync local history with the updated messages returned by the core
+  conversationHistory.length = 0;
+  conversationHistory.push(...result.messages);
 
-      // Keep assistant turn in history for multi-turn conversation
-      messages.push({ role: "assistant", content: assistantContent });
-
-      const run: AgentRun = {
-        id: runId,
-        timestamp: new Date().toISOString(),
-        userInput,
-        toolCalls,
-        finalResponse,
-      };
-
-      return { response: finalResponse, run };
-    }
-
-    // Edge case: no text and no tool use (shouldn't happen)
-    break;
-  }
-
-  return { response: "Agent hit maximum iterations. Something went wrong.", run: null };
+  return { response: result.response, run: result.run };
 }
 
 // ============================================================

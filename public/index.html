@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Weekend Agent</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0d;
+      --surface: #1a1a1a;
+      --surface2: #222;
+      --border: #2a2a2a;
+      --text: #e5e5e5;
+      --text-muted: #555;
+      --text-dim: #888;
+      --accent: #1d6e40;
+      --accent-hover: #238a4f;
+      --user-bubble: #1d5c38;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+    }
+
+    /* ---- Header ---- */
+    header {
+      flex-shrink: 0;
+      padding: 14px 18px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    header .title {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    header .sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* ---- Messages area ---- */
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 14px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ---- Chat bubbles ---- */
+    .bubble {
+      max-width: 82%;
+      padding: 10px 14px;
+      border-radius: 18px;
+      line-height: 1.55;
+      font-size: 15px;
+      word-break: break-word;
+    }
+
+    .bubble.user {
+      align-self: flex-end;
+      background: var(--user-bubble);
+      border-bottom-right-radius: 4px;
+    }
+
+    .bubble.agent {
+      align-self: flex-start;
+      background: var(--surface);
+      border-bottom-left-radius: 4px;
+      white-space: pre-wrap;
+    }
+
+    /* ---- Typing indicator ---- */
+    .thinking {
+      align-self: flex-start;
+      display: flex;
+      gap: 5px;
+      padding: 12px 14px;
+      background: var(--surface);
+      border-radius: 18px;
+      border-bottom-left-radius: 4px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: bounce 1.3s ease-in-out infinite;
+    }
+
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-5px); opacity: 1; }
+    }
+
+    /* ---- Rating ---- */
+    .rating-row {
+      align-self: flex-start;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 0;
+    }
+
+    .rating-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-right: 2px;
+    }
+
+    .rating-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-dim);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .rating-btn:hover,
+    .rating-btn:active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* ---- Note input (shown after tapping a rating) ---- */
+    .note-row {
+      align-self: flex-start;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      max-width: 85%;
+    }
+
+    .note-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 7px 12px;
+      outline: none;
+      min-width: 0;
+    }
+
+    .note-input::placeholder { color: var(--text-muted); }
+    .note-input:focus { border-color: #3a3a3a; }
+
+    .note-submit {
+      flex-shrink: 0;
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 13px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .note-submit:active { background: var(--accent-hover); }
+
+    /* ---- Rated badge ---- */
+    .rated {
+      align-self: flex-start;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 2px 0;
+    }
+
+    /* ---- Input bar ---- */
+    footer {
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+      padding: 10px 12px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      background: var(--bg);
+    }
+
+    #input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.4;
+      padding: 10px 16px;
+      outline: none;
+      resize: none;
+      max-height: 130px;
+      overflow-y: auto;
+      font-family: inherit;
+    }
+
+    #input::placeholder { color: var(--text-muted); }
+    #input:focus { border-color: #333; }
+
+    #send {
+      flex-shrink: 0;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 17px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #send:disabled { opacity: 0.35; cursor: default; }
+    #send:not(:disabled):active { background: var(--accent-hover); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="title">Weekend Agent</span>
+    <span class="sub">SLC</span>
+  </header>
+
+  <div id="messages"></div>
+
+  <footer>
+    <textarea id="input" rows="1" placeholder="What are you working with?"></textarea>
+    <button id="send" aria-label="Send">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 14V2M8 2L3 7M8 2l5 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </footer>
+
+<script>
+  const messagesEl = document.getElementById('messages');
+  const inputEl    = document.getElementById('input');
+  const sendBtn    = document.getElementById('send');
+
+  // Client holds the full Anthropic message history and sends it with each request.
+  // This keeps the Vercel function stateless.
+  let history   = [];
+  const session = crypto.randomUUID();
+
+  // ---- Scroll ----
+  function scrollBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // ---- Bubble ----
+  function addBubble(role, text) {
+    const el = document.createElement('div');
+    el.className = `bubble ${role}`;
+    el.textContent = text;
+    messagesEl.appendChild(el);
+    scrollBottom();
+    return el;
+  }
+
+  // ---- Typing indicator ----
+  function showThinking() {
+    const el = document.createElement('div');
+    el.className = 'thinking';
+    el.id = 'thinking';
+    el.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+    messagesEl.appendChild(el);
+    scrollBottom();
+  }
+
+  function hideThinking() {
+    document.getElementById('thinking')?.remove();
+  }
+
+  // ---- Rating ----
+  function showRating(runId) {
+    const row = document.createElement('div');
+    row.className = 'rating-row';
+
+    const label = document.createElement('span');
+    label.className = 'rating-label';
+    label.textContent = 'Rate:';
+    row.appendChild(label);
+
+    for (let i = 1; i <= 5; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'rating-btn';
+      btn.textContent = String(i);
+      btn.addEventListener('click', () => onRate(i, runId, row));
+      row.appendChild(btn);
+    }
+
+    messagesEl.appendChild(row);
+    scrollBottom();
+  }
+
+  function onRate(score, runId, ratingRow) {
+    ratingRow.remove();
+
+    // Show note input
+    const noteRow = document.createElement('div');
+    noteRow.className = 'note-row';
+
+    const noteInput = document.createElement('input');
+    noteInput.type = 'text';
+    noteInput.className = 'note-input';
+    noteInput.placeholder = 'Note (optional)';
+
+    const doneBtn = document.createElement('button');
+    doneBtn.className = 'note-submit';
+    doneBtn.textContent = 'Done';
+
+    noteRow.appendChild(noteInput);
+    noteRow.appendChild(doneBtn);
+    messagesEl.appendChild(noteRow);
+    noteInput.focus();
+    scrollBottom();
+
+    async function submit() {
+      const note = noteInput.value.trim();
+      noteRow.remove();
+
+      const badge = document.createElement('div');
+      badge.className = 'rated';
+      badge.textContent = `${score}/5${note ? ' \u00b7 ' + note : ''}`;
+      messagesEl.appendChild(badge);
+      scrollBottom();
+
+      if (runId) {
+        try {
+          await fetch('/api/rate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ runId, score, ...(note ? { note } : {}) }),
+          });
+        } catch (e) {
+          console.error('Rating POST failed:', e);
+        }
+      }
+    }
+
+    doneBtn.addEventListener('click', submit);
+    noteInput.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  }
+
+  // ---- Send ----
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text || sendBtn.disabled) return;
+
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    sendBtn.disabled = true;
+
+    addBubble('user', text);
+    showThinking();
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, messages: history, sessionId: session }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      hideThinking();
+      addBubble('agent', data.response);
+
+      // Update local history with the full turn from the server
+      history = data.messages;
+
+      if (data.runId) {
+        showRating(data.runId);
+      }
+    } catch (err) {
+      hideThinking();
+      addBubble('agent', 'Something went wrong. Try again.');
+      console.error(err);
+    }
+
+    sendBtn.disabled = false;
+    inputEl.focus();
+  }
+
+  // ---- Event listeners ----
+  sendBtn.addEventListener('click', sendMessage);
+
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // Auto-grow textarea
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 130) + 'px';
+  });
+</script>
+
+</body>
+</html>

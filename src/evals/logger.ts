@@ -1,11 +1,14 @@
-import { writeFileSync } from "fs";
+import { writeFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { pushToBraintrust } from "./braintrust.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const LOGS_DIR = join(__dirname, "../../data/logs");
+// On Vercel the filesystem is read-only except /tmp; use /tmp for writes.
+const LOGS_DIR = process.env.VERCEL
+  ? "/tmp/logs"
+  : join(__dirname, "../../data/logs");
 
 export interface ToolCall {
   tool: string;
@@ -33,6 +36,7 @@ export function createRunId(): string {
 export function saveRun(run: AgentRun): void {
   const filename = `${run.id}.json`;
   const filepath = join(LOGS_DIR, filename);
+  mkdirSync(LOGS_DIR, { recursive: true });
   writeFileSync(filepath, JSON.stringify(run, null, 2));
   console.log(`\n📋 Run logged: ${filepath}`);
   // Fire and forget — don't block the CLI on network

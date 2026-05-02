@@ -228,7 +228,9 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const MEMORY_FILE = join(__dirname, "../../data/memory.json");
+// On Vercel the filesystem is read-only except /tmp; use /tmp for writes.
+const DATA_DIR = process.env.VERCEL ? "/tmp" : join(__dirname, "../../data");
+const MEMORY_FILE = join(DATA_DIR, "memory.json");
 
 interface MemoryEntry {
   place: string;

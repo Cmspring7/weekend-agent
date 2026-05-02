@@ -6,7 +6,8 @@
   "scripts": {
     "start": "tsx src/agent.ts",
     "chat": "tsx src/agent.ts",
-    "rate": "tsx src/rate.ts"
+    "rate": "tsx src/rate.ts",
+    "dev": "vercel dev"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
